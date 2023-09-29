@@ -1,14 +1,11 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import {
-  ChevronDownIcon,
-  LinkBreak2Icon,
-} from "@radix-ui/react-icons";
+import { ChevronDownIcon, LinkBreak2Icon } from "@radix-ui/react-icons";
 import { useEffect, useState } from "react";
 import ReceivedStream from "./ReceivedStream";
 import CreatedStreamList, { Stream } from "./CreatedStreamList";
-import { useWallet } from "@aptos-labs/wallet-adapter-react";
+import { NetworkName, useWallet } from "@aptos-labs/wallet-adapter-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,12 +19,12 @@ import ReceivedStreamSkeleton from "./ReceivedStreamSkeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { BarLoader } from "react-spinners";
 import { NoWalletConnected } from "@/components/NoWalletConnected";
-import {
-  Dialog,
-  DialogContent,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import StreamCreator from "./StreamCreator";
+import { convertDataToStreams } from "@/lib/convertDataToStreams";
+
+const MODULE_ADDRESS = process.env.MODULE_ADDRESS;
+const MODULE_NAME = process.env.MODULE_NAME;
 
 enum Sort {
   MostRecent = "Most Recent",
@@ -106,16 +103,37 @@ export default function ClaimerPage() {
     /*
       TODO #5: Validate the account is defined before continuing. If not, return.
     */
-
+    if (!account) {
+      throw new Error('No account')
+    }
     /* 
       TODO #6: Set the areStreamsLoading state variable to true
     */
-
+    setAreStreamsLoading(true);
     /*
       TODO #7: Make a request to the view function `get_receivers_streams` to retrieve the streams sent by 
             the user.
     */
+    const body = {
+      function: `${MODULE_ADDRESS}::${MODULE_NAME}::get_receivers_streams`,
+      type_arguments: [],
+      arguments: [account.address],
+    };
 
+    const resp = await fetch(`https://fullnode.testnet.aptoslabs.com/v1/view`, {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+    });
+    if (!resp.ok) {
+      throw new Error(`${resp.status}, ${resp.statusText}`);
+    }
+    const data = await resp.json();
+    console.log("get_receivers_streams", { data });
+    const {pending, active, completed} = convertDataToStreams(data, {recipient: account.address})
     /* 
       TODO #8: Parse the response from the view request and create an object containing an array of 
             pending, completed, and active streams using the given data. Return the new object.
@@ -128,9 +146,9 @@ export default function ClaimerPage() {
         - Mark a stream as active if it is not pending or completed
     */
     return {
-      Pending: [],
-      Completed: [],
-      Active: [],
+      Pending: pending,
+      Completed: completed,
+      Active: active,
     };
   };
 
@@ -151,13 +169,15 @@ export default function ClaimerPage() {
             - Use the `txnInProgress` variable to check if a transaction is in progress.
 
           -- BarLoader component --
+          */
+        txnInProgress && (
           <div className="bg-neutral-900/50 backdrop-blur absolute top-0 bottom-0 left-0 right-0 z-50 m-auto flex items-center justify-center">
             <div className="p-6 flex flex-col items-center justify-center space-y-4">
               <BarLoader color="#10B981" />
               <p className="text-lg font-medium">Processing Transaction</p>
             </div>
           </div>
-        */
+        )
       }
 
       <>
@@ -173,6 +193,8 @@ export default function ClaimerPage() {
               - Use the `network` variable to check if the wallet is connected to the Testnet.
 
             -- Alert Component --
+            */
+          connected && !isLoading && network?.name.toLocaleLowerCase() !== NetworkName.Testnet.toLocaleLowerCase() && (
             <Alert variant="destructive" className="w-fit mb-2 mr-2">
               <LinkBreak2Icon className="h-4 w-4" />
               <AlertTitle>Switch your network!</AlertTitle>
@@ -181,7 +203,7 @@ export default function ClaimerPage() {
                 this app.
               </AlertDescription>
             </Alert>
-          */
+          )
         }
 
         {!isLoading &&
@@ -349,15 +371,19 @@ export default function ClaimerPage() {
                           if the streams are still loading.
 
                       -- Message component --
-                      <div className="flex flex-col space-y-1 items-center justify-center w-full bg-neutral-400 border border-neutral-300 py-12 px-6 font-matter rounded-lg">
-                        <p className="text-2xl font-medium">
-                          No Incoming Payments
-                        </p>
-                        <p className="text-neutral-100 text-lg">
-                          You do not have any {status.toLowerCase()} payments.
-                        </p>
-                      </div>
-                    */
+                      */
+                    !streams[status].length &&
+                      !isLoading &&
+                      !areStreamsLoading && (
+                        <div className="flex flex-col space-y-1 items-center justify-center w-full bg-neutral-400 border border-neutral-300 py-12 px-6 font-matter rounded-lg">
+                          <p className="text-2xl font-medium">
+                            No Incoming Payments
+                          </p>
+                          <p className="text-neutral-100 text-lg">
+                            You do not have any {status.toLowerCase()} payments.
+                          </p>
+                        </div>
+                      )
                   }
 
                   {
@@ -373,6 +399,8 @@ export default function ClaimerPage() {
                           if the streams are still loading.
 
                       -- ReceivedStream component --
+                      */
+                    !isLoading && !areStreamsLoading && (
                       <div className="grid grid-cols-1 gap-5 xs:grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 w-full">
                         {streams[status]
                           .map((stream) => {
@@ -398,36 +426,46 @@ export default function ClaimerPage() {
                               case Sort.MostRecent:
                                 // TODO: Sort streams by most recent
                                 // HINT: Use the streamId to sort the streams
-                                return 1;
+                                return b.props.streamId - a.props.streamId;
                               case Sort.Oldest:
                                 // TODO: Sort streams by oldest
                                 // HINT: Use the streamId to sort the streams
-                                return 1;
+                                return a.props.streamId - b.props.streamId;
                               case Sort.TotalAmountHightToLow:
                                 // TODO: Sort streams by total amount high to low
-                                return 1;
+                                return (
+                                  b.props.totalAmount - a.props.totalAmount
+                                );
                               case Sort.TotalAmountLowToHigh:
                                 // TODO: Sort streams by total amount low to high
-                                return 1;
+                                return (
+                                  a.props.totalAmount - b.props.totalAmount
+                                );
                               case Sort.EndDateFarToClose:
                                 // TODO: Sort streams by end date far to close
-                                return 1;
+                                return b.props.endDate - a.props.endDate;
                               case Sort.EndDateCloseToFar:
                                 // TODO: Sort streams by end date close to far
-                                return 1;
+                                return a.props.endDate - b.props.endDate;
                               case Sort.ClaimableAmountHighToClose:
                                 // TODO: Sort streams by claimable amount high to close
-                                return 1;
+                                return (
+                                  b.props.claimableAmount -
+                                  a.props.claimableAmount
+                                );
                               case Sort.ClaimableAmountCloseToHigh:
                                 // TODO: Sort streams by claimable amount close to high
-                                return 1;
+                                return (
+                                  a.props.claimableAmount -
+                                  b.props.claimableAmount
+                                );
                               default:
                                 // TODO: Sort streams by most recent
-                                return 1;
+                                return b.props.streamId - a.props.streamId;
                             }
                           })}
                       </div>
-                    */
+                    )
                   }
                 </div>
               </div>

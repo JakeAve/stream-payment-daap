@@ -4,9 +4,7 @@ import { Label } from "@/components/ui/label";
 import { ToastAction } from "@/components/ui/toast";
 import { useToast } from "@/components/ui/use-toast";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
-import {
-  QuestionMarkCircledIcon,
-} from "@radix-ui/react-icons";
+import { QuestionMarkCircledIcon } from "@radix-ui/react-icons";
 import { Types } from "aptos";
 import { useState } from "react";
 import {
@@ -17,6 +15,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+
+const MODULE_ADDRESS = process.env.MODULE_ADDRESS;
+const MODULE_NAME = process.env.MODULE_NAME;
 
 /* 
   Parses the duration string and returns the duration in seconds. The duration string is in the format
@@ -81,19 +82,31 @@ export default function StreamCreator(props: {
       TODO #1: Validate the address, amount, and date are all defined before continuing. Return early 
             if any of the variables are undefined.
     */
-
+    if (!address) {
+      throw new Error(`Invalid address: ${address}`);
+    }
+    if (!amount) {
+      throw new Error(`Invalid amount: ${amount}`);
+    }
+    if (!duration) {
+      throw new Error(`Invalid duration: ${duration}`);
+    }
     /* 
       TODO #2: Return early if the amount is not a number or is less than 0.
     */
-
+    if (Number.isNaN(parseFloat(amount)) || parseFloat(amount) < 0) {
+      throw new Error(`Invalid amount: ${amount}`);
+    }
     /* 
       TODO #3: Set the isTxnInProgress prop to true
     */
-
+    props.setTxn(true);
     /* 
       TODO #4: Reset the address, amount, and date state variables
     */
-
+    setAddress("");
+    setAmount("1");
+    setDuration("");
     /* 
       TODO #5: Create the payload for the create_stream transaction
 
@@ -102,6 +115,17 @@ export default function StreamCreator(props: {
           with 8 decimal places.
         - The date is in milliseconds, but the transaction expects seconds.
     */
+
+    const payload: Types.TransactionPayload = {
+      function: `${MODULE_ADDRESS}::${MODULE_NAME}::create_stream`,
+      type_arguments: [],
+      arguments: [
+        address,
+        parseFloat(amount) * 100000000,
+        parseDuration(duration) * 1000,
+      ],
+      type: "public entry fun",
+    };
 
     /* 
       TODO #6: In a try/catch block, sign and submit the transaction using the signAndSubmitTransaction
@@ -112,6 +136,10 @@ export default function StreamCreator(props: {
         - If the transaction is successful, show a toast notification with the transaction hash and
 
       -- toast -- 
+      */
+    try {
+      const response = await signAndSubmitTransaction(payload);
+      console.log("create_stream", response);
       toast({
         title: "Stream created!",
         description: `Stream created: to ${`${address.slice(
@@ -120,19 +148,22 @@ export default function StreamCreator(props: {
         )}...${address.slice(-4)}`} for ${amount} APT`,
         action: (
           <a
-            href={`PLACEHOLDER: Insert the explorer URL here`}
+            href={`https://explorer.aptoslabs.com/txn/${response.hash}?network=testnet`}
             target="_blank"
           >
             <ToastAction altText="View transaction">View txn</ToastAction>
           </a>
         ),
       });
-    */
+    } catch (err) {
+      props.setTxn(false);
+      return;
+    }
 
     /* 
       TODO #7: Set the isTxnInProgress prop to false
     */
-
+    props.setTxn(false);
   };
 
   return (
@@ -162,12 +193,14 @@ export default function StreamCreator(props: {
                 <DialogHeader>
                   <DialogTitle>What are the valid units?</DialogTitle>
                   <DialogDescription>
-                    The valid units are: &quot;second&quot;, &quot;minute&quot;, &quot;hour&quot;, &quot;day&quot;,
-                    &quot;week&quot;, &quot;month&quot;, &quot;year&quot; (with or without &quot;s&quot; at the end).
+                    The valid units are: &quot;second&quot;, &quot;minute&quot;,
+                    &quot;hour&quot;, &quot;day&quot;, &quot;week&quot;,
+                    &quot;month&quot;, &quot;year&quot; (with or without
+                    &quot;s&quot; at the end).
                     <br />
                     <br />
-                    For example, a valid duration is &quot;1 month&quot;, &quot;2 years&quot;, &quot;3.5
-                    days&quot;, etc.
+                    For example, a valid duration is &quot;1 month&quot;,
+                    &quot;2 years&quot;, &quot;3.5 days&quot;, etc.
                   </DialogDescription>
                 </DialogHeader>
               </DialogContent>

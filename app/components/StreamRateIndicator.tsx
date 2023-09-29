@@ -12,6 +12,11 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Stream } from "@/app/payments/CreatedStreamList";
+import { convertDataToStreams } from "@/lib/convertDataToStreams";
+import { addStreamRatesPerSecond } from "@/lib/addStreamRates";
+
+const MODULE_ADDRESS = process.env.MODULE_ADDRESS;
+const MODULE_NAME = process.env.MODULE_NAME;
 
 /* 
   Finds the best unit to display the stream rate in by changing the bottom of the unit from seconds
@@ -90,28 +95,51 @@ export default function StreamRateIndicator() {
     all of the streams the user is sending.
   */
   const calculateStreamRate = async () => {
-
+    if (!account) {
+      return 0
+    }
     /* 
       TODO #1: Fetch the receiver and sender streams using getReceiverStreams and getSenderStreams. 
             Then, calculate the stream rate by calculating and adding up the rate of APT per second 
             for each receiver stream and subtracting the rate of APT per second for each sender stream.
             Return the stream rate.
     */
-    let aptPerSec = 0;
-
-    return aptPerSec;
+    const {active: activeReceiving} = await getReceiverStreams();
+    const receiveRate = addStreamRatesPerSecond(activeReceiving);
+    const {active: activeSending} = await getSenderStreams();
+    const sendRate = addStreamRatesPerSecond(activeSending);
+    return receiveRate - sendRate;
   };
 
   const getSenderStreams = async () => {
     /*
      TODO #2: Validate the account is defined before continuing. If not, return.
    */
-
+    if (!account) {
+      throw new Error('No account detected')
+    }
     /*
        TODO #3: Make a request to the view function `get_senders_streams` to retrieve the streams sent by 
              the user.
     */
+    const body = {
+      function: `${MODULE_ADDRESS}::${MODULE_NAME}::get_senders_streams`,
+      type_arguments: [],
+      arguments: [account.address],
+    };
 
+    const resp = await fetch(`https://fullnode.testnet.aptoslabs.com/v1/view`, {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+    });
+    if (!resp.ok) {
+      throw new Error(`${resp.status}, ${resp.statusText}`);
+    }
+    const data = await resp.json();
     /* 
        TODO #4: Parse the response from the view request and create the streams array using the given 
              data. Return the new streams array.
@@ -119,19 +147,38 @@ export default function StreamRateIndicator() {
        HINT:
         - Remember to convert the amount to floating point number
     */
-    return [];
+    return convertDataToStreams(data, { sender: account.address });
   };
 
   const getReceiverStreams = async () => {
     /*
       TODO #5: Validate the account is defined before continuing. If not, return.
     */
-
+    if (!account) {
+      throw new Error('No account detected')
+    }
     /*
       TODO #6: Make a request to the view function `get_receivers_streams` to retrieve the streams sent by 
             the user.
     */
+    const body = {
+      function: `${MODULE_ADDRESS}::${MODULE_NAME}::get_receivers_streams`,
+      type_arguments: [],
+      arguments: [account.address],
+    };
 
+    const resp = await fetch(`https://fullnode.testnet.aptoslabs.com/v1/view`, {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+    });
+    if (!resp.ok) {
+      throw new Error(`${resp.status}, ${resp.statusText}`);
+    }
+    const data = await resp.json();
     /* 
       TODO #7: Parse the response from the view request and create an object containing an array of 
             pending, completed, and active streams using the given data. Return the new object.
@@ -143,11 +190,7 @@ export default function StreamRateIndicator() {
         - Mark a stream as completed if the start timestamp + duration is less than the current time
         - Mark a stream as active if it is not pending or completed
     */
-    return {
-      pending: [],
-      completed: [],
-      active: [],
-    };
+    return convertDataToStreams(data, { recipient: account.address });
   };
 
   if (!connected) {

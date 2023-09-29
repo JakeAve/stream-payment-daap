@@ -1,6 +1,10 @@
 "use client";
 
-import { WalletReadyState, useWallet } from "@aptos-labs/wallet-adapter-react";
+import {
+  Wallet,
+  WalletReadyState,
+  useWallet,
+} from "@aptos-labs/wallet-adapter-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,7 +19,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useEffect, useState } from "react";
+import { Key, useEffect, useState } from "react";
 import { FaucetClient, Network } from "aptos";
 import { ChevronDownIcon } from "@radix-ui/react-icons";
 
@@ -29,7 +33,8 @@ import { ChevronDownIcon } from "@radix-ui/react-icons";
 */
 export default function WalletSelector(props: { isTxnInProgress?: boolean }) {
   // wallet state variables
-  const { connect, account, connected, disconnect, wallets, isLoading } = useWallet();
+  const { connect, account, connected, disconnect, wallets, isLoading } =
+    useWallet();
   // State to hold the current account's APT balance. In string - floating point format.
   const [balance, setBalance] = useState<string | undefined>(undefined);
   // State to hold whether the faucet is loading or not.
@@ -60,7 +65,26 @@ export default function WalletSelector(props: { isTxnInProgress?: boolean }) {
             an object that contains `error_code` of `account_not_found`, call the initializeAccount
             function to initialize the account.
     */
-  }
+
+    if (!account) {
+      throw new Error("No account found");
+    }
+    const response = await fetch(
+      `https://fullnode.testnet.aptoslabs.com/v1/accounts/${account.address}`,
+      {
+        method: "GET",
+      }
+    );
+
+    const accountData = await response.json();
+
+    // If the response is the error code for account not found, the account has not been initialized
+    if (accountData.error_code == "account_not_found") {
+      initializeAccount();
+    } else {
+      return accountData;
+    }
+  };
 
   /* 
     Initializes the account by funding it with 1 APT.
@@ -70,21 +94,37 @@ export default function WalletSelector(props: { isTxnInProgress?: boolean }) {
       TODO #6: Return if the wallet is not connected, the account is not defined, a transaction is 
       in progress, or the faucet is loading.
     */
-
+    if (!connected || !account || props.isTxnInProgress || isFaucetLoading) {
+      return;
+    }
     /* 
       TODO #7: Set the isFaucetLoading state variable to prevent this function from being called again.
     */
-
+    setIsFaucetLoading(true);
     /* 
       TODO #8: Create a new faucet client with the testnet network and faucet url. Then, call the
       fundAccount function to fund the account with 1 APT. Catch any errors that occur. 
     */
+    const faucetClient = new FaucetClient(
+      Network.TESTNET,
+      "https://faucet.testnet.aptoslabs.com"
+    );
 
+    /* Fund the account with 1 APT */
+    try {
+      /*
+    The faucet's fundAccount function takes the address of the account to fund, the amount of APT
+    to fund the account with, and the number of seconds to wait before timing out.
+  */
+      await faucetClient.fundAccount(account.address, 100000000, 1);
+    } catch (e) {
+      console.log(e);
+    }
     /* 
       TODO #9: Set the isFaucetLoading state variable to false. 
     */
-
-  }
+    setIsFaucetLoading(false);
+  };
 
   /*
     Gets the balance of the given address. In case of an error, the balance is set to 0. The balance
@@ -102,6 +142,31 @@ export default function WalletSelector(props: { isTxnInProgress?: boolean }) {
         - Remember to make the API request in a try/catch block. If there is an error, set the 
           balance to "0".
     */
+    const body = {
+      function: "0x1::coin::balance",
+      type_arguments: ["0x1::aptos_coin::AptosCoin"],
+      arguments: [address],
+    };
+
+    try {
+      const res = await fetch(`https://fullnode.testnet.aptoslabs.com/v1/view`, {
+        method: "POST",
+        body: JSON.stringify(body),
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+      });
+      if (!res.ok) {
+        throw new Error(`${res.status}, ${res.statusText}`);
+      }
+      const data = await res.json();
+      console.log("0x1::aptos_coin::AptosCoin", { data });
+      setBalance((data / 100000000).toLocaleString());
+    } catch (e) {
+      setBalance("0");
+      return;
+    }
   };
 
   return (
@@ -128,31 +193,32 @@ export default function WalletSelector(props: { isTxnInProgress?: boolean }) {
                       button and the `href` for the install button. 
                     - Use the `wallets` array to get the list of supported wallets.
                     - Fill in the `Wallet Name` placeholder with the name of the wallet.
-
-                  -- Connect Wallet Component --
-                  <div
-                    key={wallet.name}
-                    className="flex w-full items-center justify-between rounded-xl p-2"
-                  >
-                    <h1>PLACEHOLDER: Wallet Name</h1>
-                    <Button variant="secondary" onClick={() => console.log("PLACEHOLDER: Connect wallet")}>
-                      Connect
-                    </Button>
-                  </div>
-
-                  -- Install Wallet Component --
-                  <div
-                    key={wallet.name}
-                    className="flex w-full items-center justify-between rounded-xl p-2"
-                  >
-                    <h1>PLACEHOLDER: Wallet Name</h1>
-                    <a href="PLACEHOLDER.com" target="_blank">
-                      <Button variant="secondary">
-                        Install
-                      </Button>
-                    </a>
-                  </div>
                 */
+
+                wallets.map((w: Wallet, index) => (
+                  <div
+                    key={index}
+                    className="flex w-full items-center justify-between rounded-xl p-2"
+                  >
+                    <h2>{w.name}</h2>
+                    {w.readyState === WalletReadyState.Installed && (
+                      <Button
+                        variant="secondary"
+                        onClick={() => {
+                          // w?.connect();
+                          connect(w.name);
+                        }}
+                      >
+                        Connect
+                      </Button>
+                    )}
+                    {w.readyState === WalletReadyState.NotDetected && (
+                      <a href={w.url} target="_blank">
+                        <Button variant="secondary">Install</Button>
+                      </a>
+                    )}
+                  </div>
+                ))
               }
             </DialogHeader>
           </DialogContent>
@@ -166,11 +232,13 @@ export default function WalletSelector(props: { isTxnInProgress?: boolean }) {
             - Use the `isLoading` variable to check if the wallet is loading.
             - Use the Button component below to display.
 
-          -- Loading Button Component --
+          -- Loading Button Component --*/
+
+        isLoading && (
           <Button variant="secondary" disabled>
             Loading...
           </Button>
-        */
+        )
       }
       {
         /* 
@@ -185,21 +253,32 @@ export default function WalletSelector(props: { isTxnInProgress?: boolean }) {
             - Remember to fill in the `onClick` event handler for the disconnect button.
           
           -- Wallet Balance Component --
+      */
+        connected && account && (
           <div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button className="font-mono">
-                  PLACEHOLDER APT | {account.address.slice(0, 5)}...{account.address.slice(-4)}
+                  {balance} | {account.address.slice(0, 5)}...
+                  {account.address.slice(-4)}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
-                <DropdownMenuItem onClick={() => {console.log("PLACEHOLDER: Disconnect wallet")}}>
+                <DropdownMenuItem
+                  onClick={() => {
+                    try {
+                      disconnect();
+                    } catch (err) {
+                      console.error(err, JSON.stringify(err))
+                    }
+                  }}
+                >
                   Disconnect
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-        */
+        )
       }
     </div>
   );
