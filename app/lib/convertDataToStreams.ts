@@ -22,7 +22,7 @@ export function convertDataToStreams(data: any, recipientSender: RecipientSender
       const sender = senderArg || data[0][i];
       const recipient = recipientArg || data[0][i];
       const startTimestampMilliseconds = data[1][i] * 1000;
-      const durationMilliseconds = parseInt(data[2][i]);
+      const durationMilliseconds = parseInt(data[2][i]) * 1000;
       const amountAptFloat = parseFloat(data[3][i]) / 100000000;
       const streamId = parseInt(data[4][i]);
 

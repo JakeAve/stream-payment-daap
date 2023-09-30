@@ -19,7 +19,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Key, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { FaucetClient, Network } from "aptos";
 import { ChevronDownIcon } from "@radix-ui/react-icons";
 
@@ -118,7 +118,7 @@ export default function WalletSelector(props: { isTxnInProgress?: boolean }) {
   */
       await faucetClient.fundAccount(account.address, 100000000, 1);
     } catch (e) {
-      console.log(e);
+      console.warn(e);
     }
     /* 
       TODO #9: Set the isFaucetLoading state variable to false. 
@@ -149,19 +149,21 @@ export default function WalletSelector(props: { isTxnInProgress?: boolean }) {
     };
 
     try {
-      const res = await fetch(`https://fullnode.testnet.aptoslabs.com/v1/view`, {
-        method: "POST",
-        body: JSON.stringify(body),
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-      });
+      const res = await fetch(
+        `https://fullnode.testnet.aptoslabs.com/v1/view`,
+        {
+          method: "POST",
+          body: JSON.stringify(body),
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+        }
+      );
       if (!res.ok) {
         throw new Error(`${res.status}, ${res.statusText}`);
       }
       const data = await res.json();
-      console.log("0x1::aptos_coin::AptosCoin", { data });
       setBalance((data / 100000000).toLocaleString());
     } catch (e) {
       setBalance("0");
@@ -258,19 +260,20 @@ export default function WalletSelector(props: { isTxnInProgress?: boolean }) {
           <div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button className="font-mono">
-                  {balance} | {account.address.slice(0, 5)}...
-                  {account.address.slice(-4)}
+                <Button className="font-mono" variant="connect">
+                  {balance}
+                  {" APT "}
+                  <span className="font-light">
+                    | {account.address.slice(0, 5)}...
+                    {account.address.slice(-4)}
+                  </span>
+                  <ChevronDownIcon />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
                 <DropdownMenuItem
                   onClick={() => {
-                    try {
-                      disconnect();
-                    } catch (err) {
-                      console.error(err, JSON.stringify(err))
-                    }
+                    disconnect();
                   }}
                 >
                   Disconnect

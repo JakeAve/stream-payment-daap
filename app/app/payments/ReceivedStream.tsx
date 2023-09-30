@@ -93,6 +93,7 @@ export default function ReceivedStream(props: {
 
   const isStreamStarted = props.startTimestampSeconds > 0;
   const isStreamDurationCompleted =
+    props.startTimestampSeconds > 0 &&
     (props.startTimestampSeconds + props.durationSeconds) * 1000 < timeNow;
 
   /* 
@@ -112,7 +113,6 @@ export default function ReceivedStream(props: {
     let timeElapsedSeconds = timeNow / 1000 - props.startTimestampSeconds;
     let timeElapsedFraction = timeElapsedSeconds / props.durationSeconds;
     let amountToClaim = props.amountAptFloat * timeElapsedFraction;
-    console.log("amountToClaim", amountToClaim);
     return amountToClaim;
   };
 
@@ -145,7 +145,6 @@ export default function ReceivedStream(props: {
       */
     try {
       const res = await signAndSubmitTransaction(payload);
-      console.log("claim_stream", res);
       toast({
         title: "APT claimed!",
         action: (
@@ -158,7 +157,7 @@ export default function ReceivedStream(props: {
         ),
       });
     } catch (err) {
-      console.error(err);
+      console.warn(err);
       props.setTxn(false);
     }
 
@@ -198,8 +197,6 @@ export default function ReceivedStream(props: {
 
     try {
       const res = await signAndSubmitTransaction(payload);
-      console.log("accept_stream", res);
-
       toast({
         title: "Stream accepted!",
         action: (
@@ -212,7 +209,7 @@ export default function ReceivedStream(props: {
         ),
       });
     } catch (err) {
-      console.error(err);
+      console.warn(err);
       props.setTxn(false);
     }
     /* 
@@ -257,7 +254,6 @@ export default function ReceivedStream(props: {
       */
     try {
       const res = await signAndSubmitTransaction(payload);
-      console.log("cancel_stream", res);
       toast({
         title: "Stream rejected",
         action: (
@@ -270,7 +266,7 @@ export default function ReceivedStream(props: {
         ),
       });
     } catch (err) {
-      console.error(err);
+      console.warn(err);
       props.setTxn(false);
     }
     /* 
@@ -341,7 +337,6 @@ export default function ReceivedStream(props: {
         - Use the event.type to determine the type of the event to properly parse the event data
         - Remember to convert units when necessary
     */
-    // console.log("all-events", eventsData);
     const filtered = eventsData
       .filter((e) => {
         return parseInt(e.data.stream_id) === props.streamId;
@@ -377,7 +372,6 @@ export default function ReceivedStream(props: {
 
         return event;
       });
-    console.log("filtered events", filtered);
     setEvents(filtered);
   };
 
@@ -409,7 +403,7 @@ export default function ReceivedStream(props: {
                 // jake come back and look at this
                 */
               props.startTimestampSeconds === 0 ||
-              getAmountToClaim() > 0 ? (
+              getAmountToClaim() >= props.amountAptFloat ? (
                 <p>{props.amountAptFloat}</p>
               ) : (
                 <CountUp
@@ -687,7 +681,7 @@ export default function ReceivedStream(props: {
 
           {/* These instructions make no sense. Probably means don't display the reject button if the stream is completed (accepted and finished) */}
           {/* **DON'T** Display the reject button if the stream is completed (accepted and finished) */}
-          {isStreamDurationCompleted && (
+          {(props.startTimestampSeconds === 0) && (
             <Button
               className="grow bg-red-800 hover:bg-red-700 text-white font-matter"
               onClick={() => {

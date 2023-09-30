@@ -132,7 +132,6 @@ export default function ClaimerPage() {
       throw new Error(`${resp.status}, ${resp.statusText}`);
     }
     const data = await resp.json();
-    console.log("get_receivers_streams", { data });
     const {pending, active, completed} = convertDataToStreams(data, {recipient: account.address})
     /* 
       TODO #8: Parse the response from the view request and create an object containing an array of 

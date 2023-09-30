@@ -122,7 +122,7 @@ export default function StreamCreator(props: {
       arguments: [
         address,
         parseFloat(amount) * 100000000,
-        parseDuration(duration) * 1000,
+        parseDuration(duration)
       ],
       type: "public entry fun",
     };
@@ -139,7 +139,6 @@ export default function StreamCreator(props: {
       */
     try {
       const response = await signAndSubmitTransaction(payload);
-      console.log("create_stream", response);
       toast({
         title: "Stream created!",
         description: `Stream created: to ${`${address.slice(

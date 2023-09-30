@@ -83,7 +83,7 @@ export default function CreatedStreamList(props: {
       -- Toast notification --
       */
 
-    const body: Types.TransactionPayload = {
+    const payload: Types.TransactionPayload = {
       function: `${MODULE_ADDRESS}::${MODULE_NAME}::cancel_stream`,
       type_arguments: [],
       arguments: [account.address, recipient],
@@ -91,23 +91,7 @@ export default function CreatedStreamList(props: {
     };
 
     try {
-      const res = await fetch(
-        `https://fullnode.testnet.aptoslabs.com/v1/view`,
-        {
-          method: "POST",
-          body: JSON.stringify(body),
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-        }
-      );
-      if (!res.ok) {
-        throw new Error(`${res.status}, ${res.statusText}`);
-      }
-      const data = await res.json();
-      console.log("cancel_stream", data);
-
+      const res = await signAndSubmitTransaction(payload);
       toast({
         title: "Stream closed!",
         description: `Closed stream for ${`${recipient.slice(
@@ -116,7 +100,7 @@ export default function CreatedStreamList(props: {
         )}...${recipient.slice(-4)}`}`,
         action: (
           <a
-            href={`https://explorer.aptoslabs.com/txn/${data.hash}?network=testnet`}
+            href={`https://explorer.aptoslabs.com/txn/${res.hash}?network=testnet`}
             target="_blank"
           >
             <ToastAction altText="View transaction">View txn</ToastAction>
@@ -176,7 +160,7 @@ export default function CreatedStreamList(props: {
       });
       return [active, completed, pending].flat();
     } catch (err) {
-      console.error(err);
+      console.warn(err);
       return [];
     }
     /* 
@@ -294,7 +278,6 @@ export default function CreatedStreamList(props: {
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger>
-                              $
                               {`${stream.recipient.slice(
                                 0,
                                 6
@@ -353,16 +336,16 @@ export default function CreatedStreamList(props: {
                           new Date() > endDate ? (
                             <p>0.00 APT</p>
                           ) : stream.startTimestampMilliseconds > 0 ? (
-                              <CountUp
-                                start={amountRemaining}
-                                end={0}
-                                duration={stream.durationMilliseconds / 1000}
-                                decimals={8}
-                                decimal="."
-                                suffix=" APT"
-                                useEasing={false}
-                                className="font-mono"
-                              />
+                            <CountUp
+                              start={amountRemaining}
+                              end={0}
+                              duration={stream.durationMilliseconds / 1000}
+                              decimals={8}
+                              decimal="."
+                              suffix=" APT"
+                              useEasing={false}
+                              className="font-mono"
+                            />
                           ) : (
                             <TooltipProvider>
                               <Tooltip>
