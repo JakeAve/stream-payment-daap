@@ -19,18 +19,9 @@ import {
 const MODULE_ADDRESS = process.env.MODULE_ADDRESS;
 const MODULE_NAME = process.env.MODULE_NAME;
 
-/* 
-  Parses the duration string and returns the duration in seconds. The duration string is in the format
-  of "1 month", "2 years", "3 days", etc. The supported units are: "second", "minute", "hour", "day",
-  "week", "month", "year". If the duration string is invalid, 0 is returned.
-  @param duration - The duration string to parse.
-*/
 export function parseDuration(duration: string): number {
-  // parse string
   const [amount, unit] = duration.split(" ");
-  // convert amount to number
   const amountNum = parseFloat(amount);
-  // convert unit to seconds
   switch (unit) {
     case "second":
     case "seconds":
@@ -62,26 +53,15 @@ export default function StreamCreator(props: {
   isTxnInProgress: boolean;
   setTxn: (isTxnInProgress: boolean) => void;
 }) {
-  // wallet state
   const { signAndSubmitTransaction } = useWallet();
 
-  // form state
   const [address, setAddress] = useState<string>("");
   const [amount, setAmount] = useState("1");
   const [duration, setDuration] = useState<string>("");
 
-  // toast state
   const { toast } = useToast();
 
-  /* 
-    Creates a stream using the address, amount, and date state variables. This function is called
-    when the "Start Stream" button is clicked.
-  */
   const startStream = async () => {
-    /* 
-      TODO #1: Validate the address, amount, and date are all defined before continuing. Return early 
-            if any of the variables are undefined.
-    */
     if (!address) {
       throw new Error(`Invalid address: ${address}`);
     }
@@ -91,30 +71,16 @@ export default function StreamCreator(props: {
     if (!duration) {
       throw new Error(`Invalid duration: ${duration}`);
     }
-    /* 
-      TODO #2: Return early if the amount is not a number or is less than 0.
-    */
+
     if (Number.isNaN(parseFloat(amount)) || parseFloat(amount) < 0) {
       throw new Error(`Invalid amount: ${amount}`);
     }
-    /* 
-      TODO #3: Set the isTxnInProgress prop to true
-    */
+
     props.setTxn(true);
-    /* 
-      TODO #4: Reset the address, amount, and date state variables
-    */
+
     setAddress("");
     setAmount("1");
     setDuration("");
-    /* 
-      TODO #5: Create the payload for the create_stream transaction
-
-      HINT: 
-        - Note that the amount is in floating point format, but the transaction expects an integer 
-          with 8 decimal places.
-        - The date is in milliseconds, but the transaction expects seconds.
-    */
 
     const payload: Types.TransactionPayload = {
       function: `${MODULE_ADDRESS}::${MODULE_NAME}::create_stream`,
@@ -122,21 +88,11 @@ export default function StreamCreator(props: {
       arguments: [
         address,
         parseFloat(amount) * 100000000,
-        parseDuration(duration)
+        parseDuration(duration),
       ],
       type: "public entry fun",
     };
 
-    /* 
-      TODO #6: In a try/catch block, sign and submit the transaction using the signAndSubmitTransaction
-            function provided by the wallet adapter. Use the payload created above.
-     
-      HINT: 
-        - In case of an error, set the isTxnInProgress prop to false and return.
-        - If the transaction is successful, show a toast notification with the transaction hash and
-
-      -- toast -- 
-      */
     try {
       const response = await signAndSubmitTransaction(payload);
       toast({
@@ -159,9 +115,6 @@ export default function StreamCreator(props: {
       return;
     }
 
-    /* 
-      TODO #7: Set the isTxnInProgress prop to false
-    */
     props.setTxn(false);
   };
 

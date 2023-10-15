@@ -55,35 +55,24 @@ function stringToStatusEnum(value: string): Status | null {
 }
 
 export default function ClaimerPage() {
-  // Wallet state
   const { isLoading, connected, account, network } = useWallet();
-  // receiver streams state
   const [streams, setStreams] = useState<{
     Completed: Stream[];
     Active: Stream[];
   }>({ Completed: [], Active: [] });
 
-  // loading states
   const [txnInProgress, setTxnInProgress] = useState(false);
   const [areStreamsLoading, setAreStreamsLoading] = useState(true);
 
-  // dropdown states
   const [sort, setSort] = useState(Sort.MostRecent);
   const [status, setStatus] = useState(Status.Active);
 
-  // button disabled states
   const [isCreatePaymentOpen, setIsCreatePaymentOpen] = useState(false);
 
-  /* 
-    Disables the create payment button if a transaction is in progress.
-  */
   useEffect(() => {
     if (txnInProgress) setIsCreatePaymentOpen(false);
   }, [isCreatePaymentOpen, txnInProgress]);
 
-  /* 
-    Fetches the receiver streams when the wallet is connected.
-  */
   useEffect(() => {
     if (connected && !txnInProgress) {
       getReceiverStreams().then((streams) => {
@@ -96,24 +85,13 @@ export default function ClaimerPage() {
     }
   }, [account, connected, txnInProgress]);
 
-  /* 
-    Retrieves the receiver streams. 
-  */
   const getReceiverStreams = async () => {
-    /*
-      TODO #5: Validate the account is defined before continuing. If not, return.
-    */
     if (!account) {
-      throw new Error('No account')
+      throw new Error("No account");
     }
-    /* 
-      TODO #6: Set the areStreamsLoading state variable to true
-    */
+
     setAreStreamsLoading(true);
-    /*
-      TODO #7: Make a request to the view function `get_receivers_streams` to retrieve the streams sent by 
-            the user.
-    */
+
     const body = {
       function: `${MODULE_ADDRESS}::${MODULE_NAME}::get_receivers_streams`,
       type_arguments: [],
@@ -132,18 +110,10 @@ export default function ClaimerPage() {
       throw new Error(`${resp.status}, ${resp.statusText}`);
     }
     const data = await resp.json();
-    const {pending, active, completed} = convertDataToStreams(data, {recipient: account.address})
-    /* 
-      TODO #8: Parse the response from the view request and create an object containing an array of 
-            pending, completed, and active streams using the given data. Return the new object.
+    const { pending, active, completed } = convertDataToStreams(data, {
+      recipient: account.address,
+    });
 
-      HINT:
-        - Remember to convert the amount to floating point number
-        - Remember to convert the timestamps to milliseconds
-        - Mark a stream as pending if the start timestamp is 0
-        - Mark a stream as completed if the start timestamp + duration is less than the current time
-        - Mark a stream as active if it is not pending or completed
-    */
     return {
       Pending: pending,
       Completed: completed,
@@ -151,49 +121,26 @@ export default function ClaimerPage() {
     };
   };
 
-  /* 
-    displays a message if the wallet is not connected
-  */
   if (!connected) {
     return <NoWalletConnected />;
   }
 
   return (
     <>
-      {
-        /* 
-          TODO #1: Display a loading indicator if a transaction is in progress. Use the given component to display the loading indicator.
-
-          HINT:
-            - Use the `txnInProgress` variable to check if a transaction is in progress.
-
-          -- BarLoader component --
-          */
-        txnInProgress && (
-          <div className="bg-neutral-900/50 backdrop-blur absolute top-0 bottom-0 left-0 right-0 z-50 m-auto flex items-center justify-center">
-            <div className="p-6 flex flex-col items-center justify-center space-y-4">
-              <BarLoader color="#10B981" />
-              <p className="text-lg font-medium">Processing Transaction</p>
-            </div>
+      {txnInProgress && (
+        <div className="bg-neutral-900/50 backdrop-blur absolute top-0 bottom-0 left-0 right-0 z-50 m-auto flex items-center justify-center">
+          <div className="p-6 flex flex-col items-center justify-center space-y-4">
+            <BarLoader color="#10B981" />
+            <p className="text-lg font-medium">Processing Transaction</p>
           </div>
-        )
-      }
+        </div>
+      )}
 
       <>
-        {
-          /* 
-            TODO #2: Display an error message if the wallet is connected to the wrong network. Use the 
-                  given components to display the message.
-            
-            HINT:
-              - Use the `connected` variable to check if the wallet is connected.
-              - Use the `isLoading` variable to check if the wallet is loading. Don't display the error
-                message if the wallet is still loading.
-              - Use the `network` variable to check if the wallet is connected to the Testnet.
-
-            -- Alert Component --
-            */
-          connected && !isLoading && network?.name.toLocaleLowerCase() !== NetworkName.Testnet.toLocaleLowerCase() && (
+        {connected &&
+          !isLoading &&
+          network?.name.toLocaleLowerCase() !==
+            NetworkName.Testnet.toLocaleLowerCase() && (
             <Alert variant="destructive" className="w-fit mb-2 mr-2">
               <LinkBreak2Icon className="h-4 w-4" />
               <AlertTitle>Switch your network!</AlertTitle>
@@ -202,8 +149,7 @@ export default function ClaimerPage() {
                 this app.
               </AlertDescription>
             </Alert>
-          )
-        }
+          )}
 
         {!isLoading &&
           connected &&
@@ -357,115 +303,70 @@ export default function ClaimerPage() {
                     </div>
                   )}
 
-                  {
-                    /* 
-                      TODO #3: Display a message if there are no incoming payments of the selected status. 
-                            Use the given components to display the message.
-
-                      HINT:
-                        - Use the `streams` variable to check if there are any streams of the selected status.
-                        - Use the `isLoading` variable to check if the wallet is loading. Don't display the message
-                          if the wallet is still loading.
-                        - Use the `areStreamsLoading` variable to check if the streams are loading. Don't display the message
-                          if the streams are still loading.
-
-                      -- Message component --
-                      */
-                    !streams[status].length &&
-                      !isLoading &&
-                      !areStreamsLoading && (
-                        <div className="flex flex-col space-y-1 items-center justify-center w-full bg-neutral-400 border border-neutral-300 py-12 px-6 font-matter rounded-lg">
-                          <p className="text-2xl font-medium">
-                            No Incoming Payments
-                          </p>
-                          <p className="text-neutral-100 text-lg">
-                            You do not have any {status.toLowerCase()} payments.
-                          </p>
-                        </div>
-                      )
-                  }
-
-                  {
-                    /*
-                      TODO #4: Display the incoming payments of the selected status. Use the given components to display the streams. 
-                              Sort the streams based on the selected sorting method.
-
-                      HINT:
-                        - Use the `streams` variable to get the streams of the selected status.
-                        - Use the `isLoading` variable to check if the wallet is loading. Don't display the streams
-                          if the wallet is still loading.
-                        - Use the `areStreamsLoading` variable to check if the streams are loading. Don't display the streams
-                          if the streams are still loading.
-
-                      -- ReceivedStream component --
-                      */
-                    !isLoading && !areStreamsLoading && (
-                      <div className="grid grid-cols-1 gap-5 xs:grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 w-full">
-                        {streams[status]
-                          .map((stream) => {
-                            return (
-                              <ReceivedStream
-                                key={stream.streamId}
-                                isTxnInProgress={txnInProgress}
-                                setTxn={setTxnInProgress}
-                                senderAddress={stream.sender}
-                                amountAptFloat={stream.amountAptFloat}
-                                durationSeconds={
-                                  stream.durationMilliseconds / 1000
-                                }
-                                startTimestampSeconds={
-                                  stream.startTimestampMilliseconds / 1000
-                                }
-                                streamId={stream.streamId}
-                              />
-                            );
-                          })
-                          .sort((a, b) => {
-                            switch (sort) {
-                              case Sort.MostRecent:
-                                // TODO: Sort streams by most recent
-                                // HINT: Use the streamId to sort the streams
-                                return b.props.streamId - a.props.streamId;
-                              case Sort.Oldest:
-                                // TODO: Sort streams by oldest
-                                // HINT: Use the streamId to sort the streams
-                                return a.props.streamId - b.props.streamId;
-                              case Sort.TotalAmountHightToLow:
-                                // TODO: Sort streams by total amount high to low
-                                return (
-                                  b.props.totalAmount - a.props.totalAmount
-                                );
-                              case Sort.TotalAmountLowToHigh:
-                                // TODO: Sort streams by total amount low to high
-                                return (
-                                  a.props.totalAmount - b.props.totalAmount
-                                );
-                              case Sort.EndDateFarToClose:
-                                // TODO: Sort streams by end date far to close
-                                return b.props.endDate - a.props.endDate;
-                              case Sort.EndDateCloseToFar:
-                                // TODO: Sort streams by end date close to far
-                                return a.props.endDate - b.props.endDate;
-                              case Sort.ClaimableAmountHighToClose:
-                                // TODO: Sort streams by claimable amount high to close
-                                return (
-                                  b.props.claimableAmount -
-                                  a.props.claimableAmount
-                                );
-                              case Sort.ClaimableAmountCloseToHigh:
-                                // TODO: Sort streams by claimable amount close to high
-                                return (
-                                  a.props.claimableAmount -
-                                  b.props.claimableAmount
-                                );
-                              default:
-                                // TODO: Sort streams by most recent
-                                return b.props.streamId - a.props.streamId;
-                            }
-                          })}
+                  {!streams[status].length &&
+                    !isLoading &&
+                    !areStreamsLoading && (
+                      <div className="flex flex-col space-y-1 items-center justify-center w-full bg-neutral-400 border border-neutral-300 py-12 px-6 font-matter rounded-lg">
+                        <p className="text-2xl font-medium">
+                          No Incoming Payments
+                        </p>
+                        <p className="text-neutral-100 text-lg">
+                          You do not have any {status.toLowerCase()} payments.
+                        </p>
                       </div>
-                    )
-                  }
+                    )}
+
+                  {!isLoading && !areStreamsLoading && (
+                    <div className="grid grid-cols-1 gap-5 xs:grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 w-full">
+                      {streams[status]
+                        .map((stream) => {
+                          return (
+                            <ReceivedStream
+                              key={stream.streamId}
+                              isTxnInProgress={txnInProgress}
+                              setTxn={setTxnInProgress}
+                              senderAddress={stream.sender}
+                              amountAptFloat={stream.amountAptFloat}
+                              durationSeconds={
+                                stream.durationMilliseconds / 1000
+                              }
+                              startTimestampSeconds={
+                                stream.startTimestampMilliseconds / 1000
+                              }
+                              streamId={stream.streamId}
+                            />
+                          );
+                        })
+                        .sort((a, b) => {
+                          switch (sort) {
+                            case Sort.MostRecent:
+                              return b.props.streamId - a.props.streamId;
+                            case Sort.Oldest:
+                              return a.props.streamId - b.props.streamId;
+                            case Sort.TotalAmountHightToLow:
+                              return b.props.totalAmount - a.props.totalAmount;
+                            case Sort.TotalAmountLowToHigh:
+                              return a.props.totalAmount - b.props.totalAmount;
+                            case Sort.EndDateFarToClose:
+                              return b.props.endDate - a.props.endDate;
+                            case Sort.EndDateCloseToFar:
+                              return a.props.endDate - b.props.endDate;
+                            case Sort.ClaimableAmountHighToClose:
+                              return (
+                                b.props.claimableAmount -
+                                a.props.claimableAmount
+                              );
+                            case Sort.ClaimableAmountCloseToHigh:
+                              return (
+                                a.props.claimableAmount -
+                                b.props.claimableAmount
+                              );
+                            default:
+                              return b.props.streamId - a.props.streamId;
+                          }
+                        })}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

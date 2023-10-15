@@ -69,10 +69,6 @@ export default function RootLayout({
         suppressHydrationWarning={true}
       >
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          {/* 
-            This is the provider from the Aptos wallet adapter. Anything inside of this provider can 
-            use the useWallet hook to access the wallet.
-          */}
           <AptosWalletAdapterProvider plugins={wallets} autoConnect={true}>
             <div className="fixed flex flex-row justify-center items-center px-6 bg-neutral-500 shadow shadow-neutral-300 h-24 lg:h-16 z-30 top-0 left-0 right-0">
               <div className="flex flex-col gap-2 lg:flex-row items-center justify-between max-w-6xl w-full">
